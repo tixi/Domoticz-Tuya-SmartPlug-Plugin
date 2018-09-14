@@ -80,5 +80,5 @@ All the information can be found here:
 
 ## Acknowledgements
 
-* clach04 for the pytuya library
+  * Special thanks for all the hard work of [codetheweb](https://github.com/codetheweb/), [clach04](https://github.com/clach04), [blackrozes](https://github.com/blackrozes), [jepsonrob](https://github.com/jepsonrob), and all the other contributers on [tuyapi](https://github.com/codetheweb/tuyapi) and [python-tuya](https://github.com/clach04/python-tuya) who have made communicating to Tuya devices possible with open source code.
 * Domoticz team
