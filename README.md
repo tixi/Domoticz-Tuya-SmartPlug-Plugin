@@ -20,6 +20,8 @@ See [`https://pypi.org/project/pycrypto/`](https://pypi.org/project/pycrypto/) f
 
 ## Installation
 
+Assuming that domoticz directory is installed in your home directory.
+
 ```bash
 cd ~/domoticz/plugins
 git clone https://github.com/tixi/Domoticz-Tuya-SmartPlug-Plugin
