@@ -4,12 +4,12 @@ A Domoticz plugin to manage Tuya Smart Plug
 
 ## ONLY TESTED FOR Raspberry Pi
 
-With Python version 3.5 & Domoticz version 4.9700 (stable) and 4.9999 (beta)
+With Python version 3.5 & Domoticz version 4.9999 (beta)
 
 ## Prerequisites
 
 This plugin is based on the latest pytuya Python library. For the installation of this library,
-follow the Installation guide below since pip will not install the latest version commited few days ago.
+follow the Installation guide below.
 See [`https://github.com/clach04/python-tuya/`](https://github.com/clach04/python-tuya/) for more information.
 
 For the pytuya Python library, you need pycrypto. pycrypto can be installed with pip:
@@ -68,10 +68,7 @@ sudo /etc/init.d/domoticz.sh restart
 | **IP address** | IP of the Smart Plug eg. 192.168.1.231 |
 | **DevID** | devID of the Smart Plug |
 | **Local Key** | Local Key of the Smart Plug |
-| **Replay** | default is Yes |
 | **Debug** | default is False |
-
-Replay indicates that a command (on/off) will be replay in case of failure except when the Smart Plug is not connected.
 
 ## DevID & Local Key Extraction
 
@@ -80,5 +77,5 @@ All the information can be found here:
 
 ## Acknowledgements
 
-  * Special thanks for all the hard work of [codetheweb](https://github.com/codetheweb/), [clach04](https://github.com/clach04), [blackrozes](https://github.com/blackrozes), [jepsonrob](https://github.com/jepsonrob), and all the other contributers on [tuyapi](https://github.com/codetheweb/tuyapi) and [python-tuya](https://github.com/clach04/python-tuya) who have made communicating to Tuya devices possible with open source code.
+  * Special thanks for all the hard work of [clach04](https://github.com/clach04), [codetheweb](https://github.com/codetheweb/) and all the other contributers on [python-tuya](https://github.com/clach04/python-tuya) and [tuyapi](https://github.com/codetheweb/tuyapi) who have made communicating to Tuya devices possible with open source code.
 * Domoticz team
