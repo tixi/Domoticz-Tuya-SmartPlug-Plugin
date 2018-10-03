@@ -26,7 +26,7 @@
 ########################################################################################
 
 """
-<plugin key="tixi_tuya_smartplug_plugin" name="Tuya SmartPlug" author="tixi" version="2.0.0" externallink=" https://github.com/tixi/Domoticz-Tuya-SmartPlug-Plugin">
+<plugin key="tixi_tuya_smartplug_plugin" name="Tuya SmartPlug" author="tixi" version="2.0.1" externallink=" https://github.com/tixi/Domoticz-Tuya-SmartPlug-Plugin">
 	<params>
 		<param field="Address" label="IP address" width="200px" required="true"/>
 		<param field="Mode1" label="DevID" width="200px" required="true"/>
@@ -49,15 +49,16 @@ class BasePlugin:
 	
 	__UNIT                = 1
 	__HB_BASE_FREQ        = 2
+	__VALID_CMD           = ('status','On','Off')
 
 	def __init__(self):
-		self.__address    = None          		#ip address of the smartplug
-		self.__devID      = None          		#devID of the smartplug
-		self.__localKey   = None          		#localKey of the smartplug
-		self.__device     = None          		#pytuya object of the smartplug
-		self.__runAgain   = self.__HB_BASE_FREQ	#heartbeat frequency (20 seconds)
-		self.__connection = None				#connection to the tuya plug
-		self.__last_cmd	  = None          		#last command (None/"On"/"Off")
+		self.__address      = None          		#IP address of the smartplug
+		self.__devID        = None          		#devID of the smartplug
+		self.__localKey     = None          		#localKey of the smartplug
+		self.__device       = None          		#pytuya object of the smartplug
+		self.__runAgain     = self.__HB_BASE_FREQ	#heartbeat frequency (20 seconds)
+		self.__connection   = None					#connection to the tuya plug
+		self.__last_cmd	    = None          		#last command (None/'On'/'Off'/'status')
 		
 		return
 		
@@ -96,7 +97,8 @@ class BasePlugin:
 				if(self.__last_cmd != None):
 					self.__command_to_execute(self.__last_cmd)
 			else:
-				self.__connection.Disconnect()
+				if(self.__connection.Connected()):
+					self.__connection.Disconnect()
 				self.__connection.Connect()
 				
 
@@ -161,6 +163,10 @@ class BasePlugin:
 
 	def __command_to_execute(self,Command):
 		
+		if(Command not in self.__VALID_CMD):
+			Domoticz.Error("Undefined command: " + Command)
+			return
+		
 		if(Command == 'status'):
 			if(self.__last_cmd == None):
 				self.__last_cmd = Command
@@ -176,12 +182,8 @@ class BasePlugin:
 				payload = self.__device.generate_payload('set', {'1':False})
 				self.__connection.Send(payload)
 				status_request = True
-			elif(Command == 'status'):
+			else: #(Command == 'status')
 				status_request = True
-			else:
-				Domoticz.Error("Unknow Command received")
-				self.__last_cmd = None
-				status_request  = False
 		
 			if(status_request):
 				payload=self.__device.generate_payload('status')
@@ -195,9 +197,7 @@ class BasePlugin:
 		
 
 	def onDisconnect(self, Connection):
-		Domoticz.Error("Disconnected from: "+Connection.Address+":"+Connection.Port)
-		#if (Connection == self.__connection):
-			#self.__connection.Connect()
+		Domoticz.Debug("Disconnected from: "+Connection.Address+":"+Connection.Port)
 
 	def onHeartbeat(self):
 		self.__runAgain -= 1
@@ -209,7 +209,8 @@ class BasePlugin:
 	def onStop(self):
 		self.__device     = None
 		self.__last_cmd   = None
-		self.__connection.Disconnect()
+		if(self.__connection.Connected()):
+			self.__connection.Disconnect()
 		self.__connection = None
 
 global _plugin
