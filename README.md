@@ -4,7 +4,7 @@ A Domoticz plugin to manage Tuya Smart Plug
 
 ## ONLY TESTED FOR Raspberry Pi
 
-With Python version 3.5 & Domoticz version 4.9999 (beta)
+With Python version 3.5 & Domoticz version 4.9700 (stable) and 4.9999 (beta)
 
 ## Prerequisites
 

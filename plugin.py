@@ -26,7 +26,7 @@
 ########################################################################################
 
 """
-<plugin key="tixi_tuya_smartplug_plugin" name="Tuya SmartPlug" author="tixi" version="2.0.1" externallink=" https://github.com/tixi/Domoticz-Tuya-SmartPlug-Plugin">
+<plugin key="tixi_tuya_smartplug_plugin" name="Tuya SmartPlug" author="tixi" version="2.0.2" externallink=" https://github.com/tixi/Domoticz-Tuya-SmartPlug-Plugin">
 	<params>
 		<param field="Address" label="IP address" width="200px" required="true"/>
 		<param field="Mode1" label="DevID" width="200px" required="true"/>
@@ -97,12 +97,14 @@ class BasePlugin:
 				if(self.__last_cmd != None):
 					self.__command_to_execute(self.__last_cmd)
 			else:
+				Domoticz.Debug("OnConnect Error Status: " + str(Status))
+				if(Status==113):#no route to host error (skip to avoid intempestive connect call)
+					return
 				if(self.__connection.Connected()):
 					self.__connection.Disconnect()
-				self.__connection.Connect()
+				if(not self.__connection.Connecting()):
+					self.__connection.Connect()
 				
-
-
 	def __extract_status(self, Data):
 		""" Returns a tuple (bool,bool) 
 			first:  set to True if an error occur and False otherwise
