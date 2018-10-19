@@ -50,7 +50,6 @@ class BasePlugin:
 	__UNIT                = 1
 	__HB_BASE_FREQ        = 2
 	__VALID_CMD           = ('status','On','Off')
-	__DPS_ID			  = '1'
 
 	def __init__(self):
 		self.__address      = None          		#IP address of the smartplug
@@ -60,6 +59,8 @@ class BasePlugin:
 		self.__runAgain     = self.__HB_BASE_FREQ	#heartbeat frequency (20 seconds)
 		self.__connection   = None					#connection to the tuya plug
 		self.__last_cmd	    = None          		#last command (None/'On'/'Off'/'status')
+		self.__last_unit	= None					#last unit for the command
+		self.__dps_units    = [1,2,3,7]
 		
 		return
 		
@@ -79,9 +80,14 @@ class BasePlugin:
 		self.__localKey = Parameters["Mode2"]
 			
 		#initialize the defined device in Domoticz
-		if (len(Devices) == 0):
-			Domoticz.Device(Name="Tuya SmartPlug", Unit=self.__UNIT, TypeName="Switch").Create()
-			Domoticz.Log("Tuya SmartPlug Device created.")
+		#if (len(Devices) == 0):
+		#	Domoticz.Device(Name="Tuya SmartPlug", Unit=self.__UNIT, TypeName="Switch").Create()
+		#	Domoticz.Log("Tuya SmartPlug Device created.")
+		
+		if(len(Devices) < len(self.__dps_units)):
+			for val in self.__dps_units:
+				Domoticz.Device(Name="Tuya SmartPlug #" + str(val), Unit=val, TypeName="Switch").Create()
+				Domoticz.Log("Tuya SmartPlug Device #" + str(val) +" created.")
 		
 		#create the pytuya object
 		self.__device = pytuya.OutletDevice(self.__devID, self.__address, self.__localKey)
@@ -107,9 +113,9 @@ class BasePlugin:
 					self.__connection.Connect()
 				
 	def __extract_status(self, Data):
-		""" Returns a tuple (bool,bool) 
+		""" Returns a tuple (bool,dict) 
 			first:  set to True if an error occur and False otherwise
-			second: set to True if the device is on and to False if the device is off
+			second: dict of the dps
 			
 			second is irrelevant if first is True 
 		"""
@@ -132,7 +138,8 @@ class BasePlugin:
 			
 		try:
 			result = json.loads(result)
-			return (False,result['dps'][self.__DPS_ID])
+			#return (False,result['dps'][self.__DPS_ID])
+			return (False,result['dps'])
 		except (JSONError, KeyError) as e:
 			return (True,"")
 
@@ -144,27 +151,40 @@ class BasePlugin:
 			if(self.__last_cmd == None):#skip nothing was waiting
 				return
 			
-			(error,is_on) = self.__extract_status(Data)
+			(error,state) = self.__extract_status(Data)
 			if(error):
 				self.__command_to_execute(self.__last_cmd)
 				return
 
 			if(self.__last_cmd == 'status'):
 				self.__last_cmd = None
+			
+			for val in self.__dps_units:
+				if(state[str(val)]):
+					UpdateDevice(val, 1, "On")
+					if(self.__last_cmd == 'On'and self.__last_unit == val):
+						self.__last_cmd  = None
+						self.__last_unit = None
+				else:
+					UpdateDevice(val, 0, "Off")
+					if(self.__last_cmd == 'Off'and self.__last_unit == val):
+						self.__last_cmd  = None
+						self.__last_unit = None
+						
 				
-			if(is_on):
-				UpdateDevice(self.__UNIT, 1, "On")
-				if(self.__last_cmd == 'On'):
-					self.__last_cmd = None						
-			else:
-				UpdateDevice(self.__UNIT, 0, "Off")
-				if(self.__last_cmd == 'Off'):
-					self.__last_cmd = None
+			#if(state[str(self.__UNIT)]):
+			#	UpdateDevice(self.__UNIT, 1, "On")
+			#	if(self.__last_cmd == 'On'):
+			#		self.__last_cmd = None						
+			#else:
+			#	UpdateDevice(self.__UNIT, 0, "Off")
+			#	if(self.__last_cmd == 'Off'):
+			#		self.__last_cmd = None
 
 			if(self.__last_cmd != None):
-				self.__command_to_execute(self.__last_cmd)
+				self.__command_to_execute(self.__last_cmd,self.__last_unit)
 
-	def __command_to_execute(self,Command):
+	def __command_to_execute(self,Command,Unit=1):
 		
 		if(Command not in self.__VALID_CMD):
 			Domoticz.Error("Undefined command: " + Command)
@@ -174,15 +194,16 @@ class BasePlugin:
 			if(self.__last_cmd == None):
 				self.__last_cmd = Command
 		else:#On/Off
-			self.__last_cmd = Command
-		
+			self.__last_cmd  = Command
+			self.__last_unit = Unit
+ 		
 		if(self.__connection.Connected()):
 			if(Command == 'On'):
-				payload = self.__device.generate_payload('set', {self.__DPS_ID:True})
+				payload = self.__device.generate_payload('set', {str(Unit):True})
 				self.__connection.Send(payload)
 				status_request = True
 			elif(Command == 'Off'):
-				payload = self.__device.generate_payload('set', {self.__DPS_ID:False})
+				payload = self.__device.generate_payload('set', {str(Unit):False})
 				self.__connection.Send(payload)
 				status_request = True
 			else: #(Command == 'status')
@@ -196,7 +217,7 @@ class BasePlugin:
 
 	def onCommand(self, Unit, Command, Level, Hue):
 		Domoticz.Debug("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command))
-		self.__command_to_execute(Command)
+		self.__command_to_execute(Command,Unit)
 		
 
 	def onDisconnect(self, Connection):
@@ -212,6 +233,7 @@ class BasePlugin:
 	def onStop(self):
 		self.__device     = None
 		self.__last_cmd   = None
+		self.__last_unit  = None
 		if(self.__connection.Connected()):
 			self.__connection.Disconnect()
 		self.__connection = None
