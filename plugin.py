@@ -24,6 +24,7 @@
 #	SOFTWARE.                                                                          #
 #                                                                                      #
 ########################################################################################
+		#<param field="Mode3" label="DPS" width="200px" required="true" default="1"/>
 
 """
 <plugin key="tixi_tuya_smartplug_plugin" name="Tuya SmartPlug" author="tixi" version="2.0.2" externallink=" https://github.com/tixi/Domoticz-Tuya-SmartPlug-Plugin">
@@ -78,7 +79,9 @@ class BasePlugin:
 		self.__address  = Parameters["Address"]
 		self.__devID    = Parameters["Mode1"]
 		self.__localKey = Parameters["Mode2"]
-			
+		
+		#self.__dps_units = Parameters["Mode3"]"TODO
+		
 		#initialize the defined device in Domoticz
 		#if (len(Devices) == 0):
 		#	Domoticz.Device(Name="Tuya SmartPlug", Unit=self.__UNIT, TypeName="Switch").Create()
@@ -102,7 +105,7 @@ class BasePlugin:
 			if (Status == 0):
 				Domoticz.Debug("Connected successfully to: "+Connection.Address+":"+Connection.Port)
 				if(self.__last_cmd != None):
-					self.__command_to_execute(self.__last_cmd)
+					self.__command_to_execute(self.__last_cmd,self.__last_unit)
 			else:
 				Domoticz.Debug("OnConnect Error Status: " + str(Status))
 				if(Status==113):#no route to host error (skip to avoid intempestive connect call)
@@ -153,7 +156,7 @@ class BasePlugin:
 			
 			(error,state) = self.__extract_status(Data)
 			if(error):
-				self.__command_to_execute(self.__last_cmd)
+				self.__command_to_execute(self.__last_cmd,self.__last_unit)
 				return
 
 			if(self.__last_cmd == 'status'):
@@ -162,12 +165,12 @@ class BasePlugin:
 			for val in self.__dps_units:
 				if(state[str(val)]):
 					UpdateDevice(val, 1, "On")
-					if(self.__last_cmd == 'On'and self.__last_unit == val):
+					if(self.__last_cmd == 'On' and self.__last_unit == val):
 						self.__last_cmd  = None
 						self.__last_unit = None
 				else:
 					UpdateDevice(val, 0, "Off")
-					if(self.__last_cmd == 'Off'and self.__last_unit == val):
+					if(self.__last_cmd == 'Off' and self.__last_unit == val):
 						self.__last_cmd  = None
 						self.__last_unit = None
 						
@@ -184,7 +187,7 @@ class BasePlugin:
 			if(self.__last_cmd != None):
 				self.__command_to_execute(self.__last_cmd,self.__last_unit)
 
-	def __command_to_execute(self,Command,Unit=1):
+	def __command_to_execute(self,Command,Unit):
 		
 		if(Command not in self.__VALID_CMD):
 			Domoticz.Error("Undefined command: " + Command)
@@ -199,13 +202,19 @@ class BasePlugin:
  		
 		if(self.__connection.Connected()):
 			if(Command == 'On'):
-				payload = self.__device.generate_payload('set', {str(Unit):True})
-				self.__connection.Send(payload)
-				status_request = True
+				if(Unit==None):
+					Domoticz.Debug("Unit=None for On command")
+				else:
+					payload = self.__device.generate_payload('set', {str(Unit):True})
+					self.__connection.Send(payload)
+					status_request = True
 			elif(Command == 'Off'):
-				payload = self.__device.generate_payload('set', {str(Unit):False})
-				self.__connection.Send(payload)
-				status_request = True
+				if(Unit==None):
+					Domoticz.Debug("Unit=None for Off command")
+				else:
+					payload = self.__device.generate_payload('set', {str(Unit):False})
+					self.__connection.Send(payload)
+					status_request = True
 			else: #(Command == 'status')
 				status_request = True
 		
@@ -227,7 +236,7 @@ class BasePlugin:
 		self.__runAgain -= 1
 		if(self.__runAgain == 0):
 			self.__runAgain = self.__HB_BASE_FREQ				
-			self.__command_to_execute('status')
+			self.__command_to_execute('status',None)
 	
 	#onStop Domoticz function
 	def onStop(self):
