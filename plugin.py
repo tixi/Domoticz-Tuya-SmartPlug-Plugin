@@ -50,6 +50,7 @@ class BasePlugin:
 	__UNIT                = 1
 	__HB_BASE_FREQ        = 2
 	__VALID_CMD           = ('status','On','Off')
+	__DPS_ID			  = '1'
 
 	def __init__(self):
 		self.__address      = None          		#IP address of the smartplug
@@ -131,7 +132,7 @@ class BasePlugin:
 			
 		try:
 			result = json.loads(result)
-			return (False,result['dps']['1'])
+			return (False,result['dps'][self.__DPS_ID])
 		except (JSONError, KeyError) as e:
 			return (True,"")
 
@@ -177,11 +178,11 @@ class BasePlugin:
 		
 		if(self.__connection.Connected()):
 			if(Command == 'On'):
-				payload = self.__device.generate_payload('set', {'1':True})
+				payload = self.__device.generate_payload('set', {self.__DPS_ID:True})
 				self.__connection.Send(payload)
 				status_request = True
 			elif(Command == 'Off'):
-				payload = self.__device.generate_payload('set', {'1':False})
+				payload = self.__device.generate_payload('set', {self.__DPS_ID:False})
 				self.__connection.Send(payload)
 				status_request = True
 			else: #(Command == 'status')
