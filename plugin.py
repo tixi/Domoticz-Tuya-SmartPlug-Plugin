@@ -24,7 +24,6 @@
 #	SOFTWARE.                                                                          #
 #                                                                                      #
 ########################################################################################
-		#<param field="Mode3" label="DPS" width="200px" required="true" default="1"/>
 
 """
 <plugin key="tixi_tuya_smartplug_plugin" name="Tuya SmartPlug" author="tixi" version="2.0.2" externallink=" https://github.com/tixi/Domoticz-Tuya-SmartPlug-Plugin">
@@ -32,6 +31,7 @@
 		<param field="Address" label="IP address" width="200px" required="true"/>
 		<param field="Mode1" label="DevID" width="200px" required="true"/>
 		<param field="Mode2" label="Local Key" width="200px" required="true"/>
+		<param field="Mode3" label="DPS" width="200px" required="true" default="1"/>
 		<param field="Mode6" label="Debug" width="75px">
 			<options>
 				<option label="True" value="Debug"/>
@@ -48,7 +48,6 @@ import json
 
 class BasePlugin:
 	
-	__UNIT                = 1
 	__HB_BASE_FREQ        = 2
 	__VALID_CMD           = ('status','On','Off')
 
@@ -61,7 +60,7 @@ class BasePlugin:
 		self.__connection   = None					#connection to the tuya plug
 		self.__last_cmd	    = None          		#last command (None/'On'/'Off'/'status')
 		self.__last_unit	= None					#last unit for the command
-		self.__dps_units    = [1,2,3,7]
+		self.__dps_units    = None					#list of dps for multiplug
 		
 		return
 		
@@ -80,7 +79,11 @@ class BasePlugin:
 		self.__devID    = Parameters["Mode1"]
 		self.__localKey = Parameters["Mode2"]
 		
-		#self.__dps_units = Parameters["Mode3"]"TODO
+		
+		self.__dps_units = []
+		for val in Parameters["Mode3"].split(";"):
+			self.__dps_units.append(int(val))
+		#Domoticz.Debug(str(self.__dps_units))
 		
 		#initialize the defined device in Domoticz
 		#if (len(Devices) == 0):
