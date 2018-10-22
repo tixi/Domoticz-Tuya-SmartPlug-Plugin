@@ -68,7 +68,11 @@ sudo /etc/init.d/domoticz.sh restart
 | **IP address** | IP of the Smart Plug eg. 192.168.1.231 |
 | **DevID** | devID of the Smart Plug |
 | **Local Key** | Local Key of the Smart Plug |
+| **DPS** | 1 for single plug and a list of dps separated by ; for multiplug eg. 1;2;3;7|
 | **Debug** | default is False |
+
+The DPS list for multiplug should only includes values that correspond to plug's dps id.
+Be careful some devices also have a timer in the dps state.
 
 ## DevID & Local Key Extraction
 
