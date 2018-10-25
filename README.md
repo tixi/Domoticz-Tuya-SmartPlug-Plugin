@@ -74,6 +74,8 @@ sudo /etc/init.d/domoticz.sh restart
 The DPS list for multiplug should only includes values that correspond to plug's dps id.
 Be careful some devices also have a timer in the dps state.
 
+Helper scripts get_dps.py turnON.py and turnOFF.py can help to determine the dps list and to the dps value of a plug.
+
 ## DevID & Local Key Extraction
 
 All the information can be found here:
