@@ -1,5 +1,5 @@
 ########################################################################################
-# 	Domoticz Tuya Smart Plug Python Plugin                                             #
+# 	Domoticz Tuya Smart Plug Python Plugin                                       #
 #                                                                                      #
 # 	MIT License                                                                        #
 #                                                                                      #
@@ -25,8 +25,11 @@
 #                                                                                      #
 ########################################################################################
 
+#<param field="Mode4" label="DPS group" width="200px" required="true" default="None"/>
+
+
 """
-<plugin key="tixi_tuya_smartplug_plugin" name="Tuya SmartPlug" author="tixi" version="2.0.2" externallink=" https://github.com/tixi/Domoticz-Tuya-SmartPlug-Plugin">
+<plugin key="tixi_tuya_smartplug_plugin" name="Tuya SmartPlug" author="tixi" version="3.0.0" externallink=" https://github.com/tixi/Domoticz-Tuya-SmartPlug-Plugin">
 	<params>
 		<param field="Address" label="IP address" width="200px" required="true"/>
 		<param field="Mode1" label="DevID" width="200px" required="true"/>
@@ -46,21 +49,65 @@ import Domoticz
 import pytuya
 import json
 
+
+class Plug:
+	
+	def __init__(self,unit):
+		self.__dps_id       = unit
+		self.__command = None
+		return
+	
+	#returns True in case the state does not correspond to the command
+	# 		 False otherwise
+	def update_state(self,state): #state: True <=> On ; False <=> Off
+		
+		if(state):
+			UpdateDevice(self.__dps_id, 1, "On")
+			if(self.__command == 'Off'):
+				return True
+			else:
+				self.__command = None
+				
+		else:
+			UpdateDevice(self.__dps_id, 0, "Off")
+			if(self.__command == 'On'):
+				return True
+			else:
+				self.__command = None
+
+		return False
+	
+	#set the command to perform a request
+	def set_command(self,cmd):
+		self.__command = cmd
+	
+	#put the payload in dict_payload for the plug
+	def put_payload(self,dict_payload):
+		
+		if(self.__command == None):
+			return
+		
+		if(self.__command =="On"):
+			dict_payload[str(self.__dps_id)] = True
+		else:
+			dict_payload[str(self.__dps_id)] = False
+			
+
 class BasePlugin:
 	
 	__HB_BASE_FREQ        = 2
-	__VALID_CMD           = ('status','On','Off')
+	__VALID_CMD           = ('On','Off')
 
 	def __init__(self):
-		self.__address      = None          		#IP address of the smartplug
-		self.__devID        = None          		#devID of the smartplug
-		self.__localKey     = None          		#localKey of the smartplug
-		self.__device       = None          		#pytuya object of the smartplug
-		self.__runAgain     = self.__HB_BASE_FREQ	#heartbeat frequency (20 seconds)
-		self.__connection   = None					#connection to the tuya plug
-		self.__last_cmd	    = None          		#last command (None/'On'/'Off'/'status')
-		self.__last_unit	= None					#last unit for the command
-		self.__dps_units    = None					#list of dps for multiplug
+		self.__address          = None          		#IP address of the smartplug
+		self.__devID            = None          		#devID of the smartplug
+		self.__localKey         = None          		#localKey of the smartplug
+		self.__device           = None          		#pytuya object of the smartplug
+		self.__runAgain         = self.__HB_BASE_FREQ	#heartbeat frequency (20 seconds)
+		self.__connection       = None					#connection to the tuya plug
+		self.__unit2dps_id_list = None					#mapping between Unit and list of dps id
+		self.__plugs	        = None					#list of plugs (internal representation)
+		self.__request_pending  = False					#True if a request was sent
 		
 		return
 		
@@ -80,18 +127,32 @@ class BasePlugin:
 		self.__localKey = Parameters["Mode2"]
 		
 		
-		self.__dps_units = []
-		for val in Parameters["Mode3"].split(";"):
-			self.__dps_units.append(int(val))
-		#Domoticz.Debug(str(self.__dps_units))
+		self.__unit2dps_id_list = {}
+		self.__plugs            = {}
+		max_unit                = 0
+		for val in sorted(Parameters["Mode3"].split(";")):
+			
+			self.__unit2dps_id_list[int(val)]=[int(val),]
+			
+			self.__plugs[int(val)]=Plug(int(val))
+			
+			if(int(val)>max_unit):
+				max_unit=int(val)
+		#Domoticz.Error(str(self.__unit2dps_id_list))
 		
-		#initialize the defined device in Domoticz
-		#if (len(Devices) == 0):
-		#	Domoticz.Device(Name="Tuya SmartPlug", Unit=self.__UNIT, TypeName="Switch").Create()
-		#	Domoticz.Log("Tuya SmartPlug Device created.")
-		
-		if(len(Devices) < len(self.__dps_units)):
-			for val in self.__dps_units:
+		#groups management: not ready yet
+		#max_unit = max_unit + 1
+		#if(Parameters["Mode4"]!="None"):
+		#	groups = Parameters["Mode4"].split(":")
+		#	for group in groups:
+		#		self.__unit2dps_id_list[max_unit]=[]
+		#		for val in sorted(group.split(";")):
+		#			self.__unit2dps_id_list[max_unit].append(int(val))
+		#		max_unit = max_unit + 1
+				
+						
+		if(len(Devices) == 0):
+			for val in self.__unit2dps_id_list:
 				Domoticz.Device(Name="Tuya SmartPlug #" + str(val), Unit=val, TypeName="Switch").Create()
 				Domoticz.Log("Tuya SmartPlug Device #" + str(val) +" created.")
 		
@@ -99,7 +160,6 @@ class BasePlugin:
 		self.__device = pytuya.OutletDevice(self.__devID, self.__address, self.__localKey)
 
 		#start the connection
-		self.__last_cmd = 'status'
 		self.__connection = Domoticz.Connection(Name="Tuya", Transport="TCP/IP", Address=self.__address, Port="6668")
 		self.__connection.Connect()
 
@@ -107,8 +167,7 @@ class BasePlugin:
 		if (Connection == self.__connection):
 			if (Status == 0):
 				Domoticz.Debug("Connected successfully to: "+Connection.Address+":"+Connection.Port)
-				if(self.__last_cmd != None):
-					self.__command_to_execute(self.__last_cmd,self.__last_unit)
+				self.__command_to_execute()
 			else:
 				Domoticz.Debug("OnConnect Error Status: " + str(Status))
 				if(Status==113):#no route to host error (skip to avoid intempestive connect call)
@@ -144,92 +203,69 @@ class BasePlugin:
 			
 		try:
 			result = json.loads(result)
-			#return (False,result['dps'][self.__DPS_ID])
 			return (False,result['dps'])
 		except (JSONError, KeyError) as e:
 			return (True,"")
+
 
 	def onMessage(self, Connection, Data):
 		Domoticz.Debug("onMessage called: " + Connection.Address + ":" + Connection.Port +" "+ str(Data))
 		
 		if (Connection == self.__connection):
 			
-			if(self.__last_cmd == None):#skip nothing was waiting
+			if(not self.__request_pending):#skip nothing was waiting
 				return
+			
+			self.__request_pending = False
 			
 			(error,state) = self.__extract_status(Data)
 			if(error):
-				self.__command_to_execute(self.__last_cmd,self.__last_unit)
+				self.__command_to_execute()
 				return
-
-			if(self.__last_cmd == 'status'):
-				self.__last_cmd = None
 			
-			for val in self.__dps_units:
-				if(state[str(val)]):
-					UpdateDevice(val, 1, "On")
-					if(self.__last_cmd == 'On' and self.__last_unit == val):
-						self.__last_cmd  = None
-						self.__last_unit = None
-				else:
-					UpdateDevice(val, 0, "Off")
-					if(self.__last_cmd == 'Off' and self.__last_unit == val):
-						self.__last_cmd  = None
-						self.__last_unit = None
-						
+			
+			error = False
+			for key in self.__plugs:				
+				error = error or self.__plugs[key].update_state(state[str(key)])	
 				
-			#if(state[str(self.__UNIT)]):
-			#	UpdateDevice(self.__UNIT, 1, "On")
-			#	if(self.__last_cmd == 'On'):
-			#		self.__last_cmd = None						
-			#else:
-			#	UpdateDevice(self.__UNIT, 0, "Off")
-			#	if(self.__last_cmd == 'Off'):
-			#		self.__last_cmd = None
+			if(error):
+				self.__command_to_execute()
 
-			if(self.__last_cmd != None):
-				self.__command_to_execute(self.__last_cmd,self.__last_unit)
 
-	def __command_to_execute(self,Command,Unit):
+	def __command_to_execute(self):
+				
+		if(self.__connection.Connected()):
+			
+			self.__request_pending = True
+			
+			dict_payload = {}
+			
+			for key in self.__plugs:
+				self.__plugs[key].put_payload(dict_payload)
+			
+			if(len(dict_payload) != 0):
+				payload = self.__device.generate_payload('set', dict_payload)
+				self.__connection.Send(payload)
+				
+			payload=self.__device.generate_payload('status')
+			self.__connection.Send(payload)	
+			
+		else:
+			if(not self.__connection.Connecting()):
+				self.__connection.Connect()
+
+
+	def onCommand(self, Unit, Command, Level, Hue):
+		Domoticz.Debug("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command))
 		
 		if(Command not in self.__VALID_CMD):
 			Domoticz.Error("Undefined command: " + Command)
 			return
 		
-		if(Command == 'status'):
-			if(self.__last_cmd == None):
-				self.__last_cmd = Command
-		else:#On/Off
-			self.__last_cmd  = Command
-			self.__last_unit = Unit
- 		
-		if(self.__connection.Connected()):
-			if(Command == 'On'):
-				if(Unit==None):
-					Domoticz.Debug("Unit=None for On command")
-				else:
-					payload = self.__device.generate_payload('set', {str(Unit):True})
-					self.__connection.Send(payload)
-					status_request = True
-			elif(Command == 'Off'):
-				if(Unit==None):
-					Domoticz.Debug("Unit=None for Off command")
-				else:
-					payload = self.__device.generate_payload('set', {str(Unit):False})
-					self.__connection.Send(payload)
-					status_request = True
-			else: #(Command == 'status')
-				status_request = True
+		for val in self.__unit2dps_id_list[Unit]:
+			self.__plugs[val].set_command(Command)
 		
-			if(status_request):
-				payload=self.__device.generate_payload('status')
-				self.__connection.Send(payload)
-		else:
-			self.__connection.Connect()
-
-	def onCommand(self, Unit, Command, Level, Hue):
-		Domoticz.Debug("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command))
-		self.__command_to_execute(Command,Unit)
+		self.__command_to_execute()
 		
 
 	def onDisconnect(self, Connection):
@@ -239,16 +275,16 @@ class BasePlugin:
 		self.__runAgain -= 1
 		if(self.__runAgain == 0):
 			self.__runAgain = self.__HB_BASE_FREQ				
-			self.__command_to_execute('status',None)
+			self.__command_to_execute() #only a status request should be sent
 	
 	#onStop Domoticz function
 	def onStop(self):
-		self.__device     = None
-		self.__last_cmd   = None
-		self.__last_unit  = None
-		if(self.__connection.Connected()):
+		self.__device          = None
+		self.__plugs	       = None
+		if(self.__connection.Connected() or self.__connection.Connecting()):
 			self.__connection.Disconnect()
-		self.__connection = None
+		self.__connection      = None
+		self.__request_pending = False
 
 global _plugin
 _plugin = BasePlugin()
