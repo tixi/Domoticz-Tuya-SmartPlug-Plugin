@@ -27,7 +27,7 @@
 
 
 """
-<plugin key="tixi_tuya_smartplug_plugin" name="Tuya SmartPlug" author="tixi" version="3.0.0" externallink=" https://github.com/tixi/Domoticz-Tuya-SmartPlug-Plugin">
+<plugin key="sincze_tuya_smartplug_plugin" name="Tuya SmartPlug" author="tixi_sincze" version="1.0.0" externallink=" https://github.com/sincze/Domoticz-Tuya-SmartPlug-Plugin">
 	<params>
 		<param field="Address" label="IP address" width="200px" required="true"/>
 		<param field="Mode1" label="DevID" width="200px" required="true"/>
@@ -288,6 +288,9 @@ class BasePlugin:
 		self.__devID            = None          		#devID of the smartplug
 		self.__localKey         = None          		#localKey of the smartplug
 		self.__device           = None          		#pytuya object of the smartplug
+		self.__ampere	        = 4						#key for Ampere
+		self.__watt             = 5						#key for Watt
+		self.__voltage          = 6						#key for Voltage
 		self.__runAgain         = self.__HB_BASE_FREQ	#heartbeat frequency
 		self.__connection       = None					#connection to the tuya plug
 		self.__unit2dps_id_list = None					#mapping between Unit and list of dps id
@@ -345,9 +348,17 @@ class BasePlugin:
 			for val in self.__unit2dps_id_list:
 				
 				if(val <= max_dps): #single socket dps
-					Domoticz.Device(Name="Tuya SmartPlug #" + str(val), Unit=val, TypeName="Switch").Create()
-					Domoticz.Log("Tuya SmartPlug Device #" + str(val) +" created.")
-					
+					Domoticz.Device(Name="Tuya SmartPlug (Switch)", Unit=val, TypeName="Switch").Create()
+					Domoticz.Log("Tuya SmartPlug Device (Switch) #" + str(val) +" created.")
+					Domoticz.Device(Name="Tuya SmartPlug (A)" , Unit=val*4+10, TypeName="Current (Single)").Create()
+					Domoticz.Log("Tuya SmartPlug Device (A) #" + str(val*4+10) +" created.")
+					Domoticz.Device(Name="Tuya SmartPlug (kWh)", Unit=val*4+11, TypeName="kWh").Create()
+					Domoticz.Log("Tuya SmartPlug Device kWh #" + str(val*4+11) +" created.")
+					Domoticz.Device(Name="Tuya SmartPlug (V)", Unit=val*4+12, TypeName="Voltage").Create()
+					Domoticz.Log("Tuya SmartPlug Device (V) #" + str(val*4+12) +" created.")
+					Domoticz.Device(Name="Tuya SmartPlug (W)", Unit=val*4+13, TypeName="Usage").Create()
+					Domoticz.Log("Tuya SmartPlug Device (W) #" + str(val*4+14) +" created.")
+
 				else: #group: selector switch
 					Options = {"LevelActions": "|",
 						"LevelNames": "Off|On",
@@ -418,10 +429,20 @@ class BasePlugin:
 			if(error):
 				self.__command_to_execute()
 				return
-			
+						
 			error = False
 			for key in self.__plugs:				
 				error = error or self.__plugs[key].update_state(state[str(key)])	
+				Devices[key*4+10].Update(0,str(state[str(self.__ampere)]/1000))	# TypeName="Current (Single)
+				Devices[key*4+11].Update(0,str(state[str(self.__watt)]/10) + ";0")	# kWh / Calculated
+				Devices[key*4+12].Update(0,str(state[str(self.__voltage)]/10)) 	# TypeName="Voltage"
+				Devices[key*4+13].Update(0,str(state[str(self.__watt)]/10)) 	# TypeName="Usage"
+
+				Domoticz.Debug("created. Key 1: " + str(state['1']) + " Plug State")
+				Domoticz.Debug("created. Key 4: " + str(state[str(self.__ampere)]/1000) + " Ampere Key is:" + str(key+10))
+				Domoticz.Debug("created. Key 5: " + str(state[str(self.__watt)]/10) + " Watt Key is:" + str(key+11))
+				Domoticz.Debug("created. Key 6:: " + str(state[str(self.__voltage)]/10) + " Voltage Key is:" + str(key+12))
+
 				
 			if(error):
 				self.__command_to_execute()
