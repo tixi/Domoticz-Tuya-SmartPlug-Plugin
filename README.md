@@ -1,10 +1,15 @@
 # Domoticz-Tuya-SmartPlug-Plugin
 
 A Domoticz plugin to manage Tuya Smart Plug (single and multi socket device)
+This is a modified plugin from the original by Tixi, The original plugin only supported an On/Off switch.
+Now meters for Watt, Voltage, Ampere, kWh (calculated) are also created.
+
+Multi socket has not been tested by sincze. I only have 1 socket. Keep in mind I am not a Python developer. 
+Plugin is provided on best-effort.
 
 ## ONLY TESTED FOR Raspberry Pi
 
-With Python version 3.5 & Domoticz version 4.9700 (stable)
+With Python version 3.5 & Domoticz version V4.1044 (beta)
 ## Prerequisites
 
 This plugin is based on the pytuya Python library. For the installation of this library,
@@ -23,7 +28,7 @@ Assuming that domoticz directory is installed in your home directory.
 
 ```bash
 cd ~/domoticz/plugins
-git clone https://github.com/tixi/Domoticz-Tuya-SmartPlug-Plugin
+git clone https://github.com/sincze/Domoticz-Tuya-SmartPlug-Plugin
 cd Domoticz-Tuya-SmartPlug-Plugin
 git clone https://github.com/clach04/python-tuya.git
 ln -s ~/domoticz/plugins/Domoticz-Tuya-SmartPlug-Plugin/python-tuya/pytuya pytuya
@@ -31,6 +36,12 @@ ln -s ~/domoticz/plugins/Domoticz-Tuya-SmartPlug-Plugin/python-tuya/pytuya pytuy
 sudo /etc/init.d/domoticz.sh restart
 ```
 In the web UI, navigate to the Hardware page. In the hardware dropdown there will be an entry called "Tuya SmartPlug".
+At the moment the following DPS codes are hardcoded (under constructor). I'll try to modify the plugin in a later version 
+to support a parameter field so these values can be provided during configuration.
+
+self.__ampere  	        = 4						# DPS key for Ampere
+self.__watt             = 5						# DPS key for Watt
+self.__voltage          = 6						# DPS key for Voltage
 
 ## Known issues
 
@@ -104,3 +115,4 @@ All the information can be found here:
 
 * Special thanks for all the hard work of [clach04](https://github.com/clach04), [codetheweb](https://github.com/codetheweb/) and all the other contributers on [python-tuya](https://github.com/clach04/python-tuya) and [tuyapi](https://github.com/codetheweb/tuyapi) who have made communicating to Tuya devices possible with open source code.
 * Domoticz team
+* Original Plugin by [Tixi](https://github.com/tixi/Domoticz-Tuya-SmartPlug-Plugin)
