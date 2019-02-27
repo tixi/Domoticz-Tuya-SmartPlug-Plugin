@@ -4,6 +4,8 @@ A Domoticz plugin to manage Tuya Smart Plug (single and multi socket device)
 This is a modified plugin from the original by Tixi, The original plugin only supported an On/Off switch.
 Now meters for Watt, Voltage, Ampere, kWh (calculated) are also created.
 
+![devices](https://github.com/sincze/Domoticz-Tuya-SmartPlug-Plugin/blob/master/Tuya%20Smartplug.JPG)
+
 Multi socket has not been tested by sincze. I only have 1 socket. Keep in mind I am not a Python developer. 
 Plugin is provided on best-effort.
 
