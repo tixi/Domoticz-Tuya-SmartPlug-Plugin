@@ -37,14 +37,6 @@ ln -s ~/domoticz/plugins/Domoticz-Tuya-SmartPlug-Plugin/python-tuya/pytuya pytuy
 # restart domoticz:
 sudo /etc/init.d/domoticz.sh restart
 ```
-In the web UI, navigate to the Hardware page. In the hardware dropdown there will be an entry called "Tuya SmartPlug".
-At the moment the following DPS codes are hardcoded (under constructor). I'll try to modify the plugin in a later version 
-to support a parameter field so these values can be provided during configuration.
-
-self.__ampere  	        = 4						# DPS key for Ampere
-self.__watt             = 5						# DPS key for Watt
-self.__voltage          = 6						# DPS key for Voltage
-
 ## Known issues
 
 1/ python environment
@@ -92,14 +84,12 @@ sudo /etc/init.d/domoticz.sh restart
 | **Local Key** | Local Key of the Smart Plug |
 | **DPS** |	1 for single socket device and a list of dps separated by ';' for multisocket device eg. 1;2;3;7
 | **DPS group** | None for single socket device and a list of list of dps separated by ':' for multisocket device eg. 1;2 : 3;7
-| **DPS always ON** | None for single socket device and a list of dps separated by ; for multisocket device eg. 1;2
+| **ID Amp;Watt;Volt** | Enter the ID's of these specific devices separated by ; eg 4;5;6 (nt tested with Multisocket)
 | **Debug** | default is 0 |
 
 **DPS** should only includes values that correspond to plug's dps id. Be careful some devices also have timers in the dps state.
 
 **DPS group** can be used to group multiple sockets in one Domoticz switch.
-
-**DPS always ON** can be used to force some sockets to be always on (usb for instance).
 
 Helper scripts get_dps.py turnON.py and turnOFF.py can help:
 * to determine the dps list
