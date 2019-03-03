@@ -27,14 +27,14 @@
 
 
 """
-<plugin key="sincze_tuya_smartplug_plugin" name="Tuya SmartPlug" author="tixi_sincze" version="1.0.0" externallink=" https://github.com/sincze/Domoticz-Tuya-SmartPlug-Plugin">
+<plugin key="sincze_tuya_smartplug_plugin_config" name="Tuya SmartPlug Config" author="tixi_sincze" version="1.0.0" externallink=" https://github.com/sincze/Domoticz-Tuya-SmartPlug-Plugin">
 	<params>
 		<param field="Address" label="IP address" width="200px" required="true"/>
 		<param field="Mode1" label="DevID" width="200px" required="true"/>
 		<param field="Mode2" label="Local Key" width="200px" required="true"/>
 		<param field="Mode3" label="DPS" width="200px" required="true" default="1"/>
 		<param field="Mode4" label="DPS group" width="200px" required="true" default="None"/>
-		<param field="Mode5" label="DPS always ON" width="200px" required="true" default="None"/>
+		<param field="Mode5" label="ID Amp;Watt;Volt" width="200px" required="true" default="4;5;6"/>
 		<param field="Mode6" label="Debug" width="75px">
 			<options>
 				<option label="0"   value="0" default="true"/>
@@ -51,6 +51,8 @@
 	</params>
 </plugin>
 """
+
+
 
 # https://wiki.domoticz.com/wiki/Developing_a_Python_plugin
 # Debugging
@@ -288,9 +290,9 @@ class BasePlugin:
 		self.__devID            = None          		#devID of the smartplug
 		self.__localKey         = None          		#localKey of the smartplug
 		self.__device           = None          		#pytuya object of the smartplug
-		self.__ampere	        = 4						#key for Ampere
-		self.__watt             = 5						#key for Watt
-		self.__voltage          = 6						#key for Voltage
+		self.__ampere	        = None					#key for Ampere
+		self.__watt             = None					#key for Watt
+		self.__voltage          = None					#key for Voltage
 		self.__runAgain         = self.__HB_BASE_FREQ	#heartbeat frequency
 		self.__connection       = None					#connection to the tuya plug
 		self.__unit2dps_id_list = None					#mapping between Unit and list of dps id
@@ -313,6 +315,7 @@ class BasePlugin:
 		self.__address  = Parameters["Address"]
 		self.__devID    = Parameters["Mode1"]
 		self.__localKey = Parameters["Mode2"]
+		self.__ampere, self.__watt, self.__voltage = Parameters["Mode5"].split(";")
 		
 		#set the next heartbeat
 		self.__runAgain = self.__HB_BASE_FREQ
@@ -350,14 +353,14 @@ class BasePlugin:
 				if(val <= max_dps): #single socket dps
 					Domoticz.Device(Name="Tuya SmartPlug (Switch)", Unit=val, TypeName="Switch").Create()
 					Domoticz.Log("Tuya SmartPlug Device (Switch) #" + str(val) +" created.")
-					Domoticz.Device(Name="Tuya SmartPlug (A)" , Unit=val*4+10, TypeName="Current (Single)").Create()
-					Domoticz.Log("Tuya SmartPlug Device (A) #" + str(val*4+10) +" created.")
-					Domoticz.Device(Name="Tuya SmartPlug (kWh)", Unit=val*4+11, TypeName="kWh").Create()
-					Domoticz.Log("Tuya SmartPlug Device kWh #" + str(val*4+11) +" created.")
-					Domoticz.Device(Name="Tuya SmartPlug (V)", Unit=val*4+12, TypeName="Voltage").Create()
-					Domoticz.Log("Tuya SmartPlug Device (V) #" + str(val*4+12) +" created.")
-					Domoticz.Device(Name="Tuya SmartPlug (W)", Unit=val*4+13, TypeName="Usage").Create()
-					Domoticz.Log("Tuya SmartPlug Device (W) #" + str(val*4+14) +" created.")
+					Domoticz.Device(Name="Tuya SmartPlug (A)" , Unit=val+1, TypeName="Current (Single)").Create()
+					Domoticz.Log("Tuya SmartPlug Device (A) #" + str(val+1) +" created.")
+					Domoticz.Device(Name="Tuya SmartPlug (kWh)", Unit=val+2, TypeName="kWh").Create()
+					Domoticz.Log("Tuya SmartPlug Device kWh #" + str(val+2) +" created.")
+					Domoticz.Device(Name="Tuya SmartPlug (V)", Unit=val+3, TypeName="Voltage").Create()
+					Domoticz.Log("Tuya SmartPlug Device (V) #" + str(val+3) +" created.")
+					Domoticz.Device(Name="Tuya SmartPlug (W)", Unit=val+4, TypeName="Usage").Create()
+					Domoticz.Log("Tuya SmartPlug Device (W) #" + str(val+4) +" created.")
 
 				else: #group: selector switch
 					Options = {"LevelActions": "|",
@@ -368,9 +371,9 @@ class BasePlugin:
 					Domoticz.Log("Tuya SmartPlug Device #" + str(val) +" created.")
 		
 		#manage always on
-		if(Parameters["Mode5"]!="None"):
-			for val in sorted(Parameters["Mode5"].split(";")):
-				self.__plugs[int(val)].set_alwaysON()
+		#if(Parameters["Mode5"]!="None"):
+		#	for val in sorted(Parameters["Mode5"].split(";")):
+		#		self.__plugs[int(val)].set_alwaysON()
 		
 		#create the pytuya object
 		self.__device = pytuya.OutletDevice(self.__devID, self.__address, self.__localKey)
@@ -433,17 +436,15 @@ class BasePlugin:
 			error = False
 			for key in self.__plugs:				
 				error = error or self.__plugs[key].update_state(state[str(key)])	
-				Devices[key*4+10].Update(0,str(state[str(self.__ampere)]/1000))	# TypeName="Current (Single)
-				Devices[key*4+11].Update(0,str(state[str(self.__watt)]/10) + ";0")	# kWh / Calculated
-				Devices[key*4+12].Update(0,str(state[str(self.__voltage)]/10)) 	# TypeName="Voltage"
-				Devices[key*4+13].Update(0,str(state[str(self.__watt)]/10)) 	# TypeName="Usage"
-
-				Domoticz.Debug("created. Key 1: " + str(state['1']) + " Plug State")
-				Domoticz.Debug("created. Key 4: " + str(state[str(self.__ampere)]/1000) + " Ampere Key is:" + str(key+10))
-				Domoticz.Debug("created. Key 5: " + str(state[str(self.__watt)]/10) + " Watt Key is:" + str(key+11))
-				Domoticz.Debug("created. Key 6:: " + str(state[str(self.__voltage)]/10) + " Voltage Key is:" + str(key+12))
-
+				Devices[key+1].Update(0,str(state[str(self.__ampere)]/1000))	# TypeName="Current (Single)
+				Devices[key+2].Update(0,str(state[str(self.__watt)]/10) + ";0")	# kWh / Calculated
+				Devices[key+3].Update(0,str(state[str(self.__voltage)]/10)) 	# TypeName="Voltage"
+				Devices[key+4].Update(0,str(state[str(self.__watt)]/10)) 		# TypeName="Usage"
 				
+				Domoticz.Debug("Updated: " + str(state[str(self.__ampere)]/1000) + " Ampere Key is:" + str(key+1))
+				Domoticz.Debug("Updated: " + str(state[str(self.__watt)]/10) + " Watt Key is:" + str(key+12))
+				Domoticz.Debug("Updated: " + str(state[str(self.__voltage)]/10) + " Voltage Key is:" + str(key+13))
+			
 			if(error):
 				self.__command_to_execute()
 
