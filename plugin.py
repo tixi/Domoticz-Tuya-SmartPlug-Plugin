@@ -337,7 +337,8 @@ class BasePlugin:
 		max_dps = max_unit
 		
 		#groups management: #syntax: 1;2 : 3;4
-		max_unit = max_unit + 1
+		# +5 instead of +1 to have spare room for the extra devices for Amp, W, kWh
+		max_unit = max_unit + 5
 		if(Parameters["Mode4"]!="None"):
 			groups = Parameters["Mode4"].split(":")
 			for group in groups:
@@ -353,14 +354,16 @@ class BasePlugin:
 				if(val <= max_dps): #single socket dps
 					Domoticz.Device(Name="Tuya SmartPlug (Switch)", Unit=val, TypeName="Switch").Create()
 					Domoticz.Log("Tuya SmartPlug Device (Switch) #" + str(val) +" created.")
-					Domoticz.Device(Name="Tuya SmartPlug (A)" , Unit=val+1, TypeName="Current (Single)").Create()
-					Domoticz.Log("Tuya SmartPlug Device (A) #" + str(val+1) +" created.")
-					Domoticz.Device(Name="Tuya SmartPlug (kWh)", Unit=val+2, TypeName="kWh").Create()
-					Domoticz.Log("Tuya SmartPlug Device kWh #" + str(val+2) +" created.")
-					Domoticz.Device(Name="Tuya SmartPlug (V)", Unit=val+3, TypeName="Voltage").Create()
-					Domoticz.Log("Tuya SmartPlug Device (V) #" + str(val+3) +" created.")
-					Domoticz.Device(Name="Tuya SmartPlug (W)", Unit=val+4, TypeName="Usage").Create()
-					Domoticz.Log("Tuya SmartPlug Device (W) #" + str(val+4) +" created.")
+					## After the last DPS add the global devices
+					if(val == max_dps):
+						Domoticz.Device(Name="Tuya SmartPlug (A)" , Unit=val+1, TypeName="Current (Single)").Create()
+						Domoticz.Log("Tuya SmartPlug Device (A) #" + str(val+1) +" created.")
+						Domoticz.Device(Name="Tuya SmartPlug (kWh)", Unit=val+2, TypeName="kWh").Create()
+						Domoticz.Log("Tuya SmartPlug Device kWh #" + str(val+2) +" created.")
+						Domoticz.Device(Name="Tuya SmartPlug (V)", Unit=val+3, TypeName="Voltage").Create()
+						Domoticz.Log("Tuya SmartPlug Device (V) #" + str(val+3) +" created.")
+						Domoticz.Device(Name="Tuya SmartPlug (W)", Unit=val+4, TypeName="Usage").Create()
+						Domoticz.Log("Tuya SmartPlug Device (W) #" + str(val+4) +" created.")
 
 				else: #group: selector switch
 					Options = {"LevelActions": "|",
