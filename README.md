@@ -1,3 +1,5 @@
+NOTE I'm no longer using these devices so this is not actively maintained.
+
 # Domoticz-Tuya-SmartPlug-Plugin
 
 A Domoticz plugin to manage Tuya Smart Plug (single and multi socket device)
