@@ -50,10 +50,10 @@ pip3 show pycrypto
 The Crypto directory should be present in the directory indicated with Location.
 
 when you have it, just add a symbolic link to it in Domoticz-Tuya-SmartPlug-Plugin directory with ```ln -s```.
-Example:
+Example: (Assuming that domoticz directory is installed in your home directory. )
 ```bash
 cd ~/domoticz/plugins/Domoticz-Tuya-SmartPlug-Plugin
-ln -s /home/pi/.local/lib/python3.5/site-packages/Crypto Crypto
+ ln -s /usr/lib/python3/dist-packages/Crypto Crypto
 ```
 
 2/ Tuya app
