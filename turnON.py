@@ -6,6 +6,7 @@
 # 	MIT License                                                                        #
 #                                                                                      #
 #	Copyright (c) 2018 tixi                                                            #
+#	Modified (c) 2022 Tatroxitum                                                       #
 #                                                                                      #
 #	Permission is hereby granted, free of charge, to any person obtaining a copy       #
 #	of this software and associated documentation files (the "Software"), to deal      #
@@ -28,7 +29,7 @@
 ########################################################################################
 
 import sys
-import pytuya
+import tinytuya
 import socket #needed for socket.timeout exception
 
 
@@ -41,12 +42,12 @@ devid     = sys.argv[2]
 localkey  = sys.argv[3]
 dps_value = sys.argv[4]
 
-device    = pytuya.OutletDevice(devid,ip,localkey)
+device    = tinytuya.OutletDevice(devid,ip,localkey)
 
 try:
-	
-	payload = device.generate_payload('set', {str(dps_value):True})
-	device._send_receive(payload)
+	device.set_version(3.3)
+	#set on
+	device.turn_on()
 	
 except (ConnectionResetError, socket.timeout, OSError)  as e:
 	print("A problem occur please retry...")

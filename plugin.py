@@ -3,7 +3,8 @@
 #                                                                                      #
 # 	MIT License                                                                        #
 #                                                                                      #
-#	Copyright (c) 2018 tixi                                                            #
+#	Copyright (c) 2018 tixi 
+#	Modified (C) 2022 Tatroxitum : Updated to tinytuya interface and minor corrections #
 #                                                                                      #
 #	Permission is hereby granted, free of charge, to any person obtaining a copy       #
 #	of this software and associated documentation files (the "Software"), to deal      #
@@ -27,14 +28,14 @@
 
 
 """
-<plugin key="sincze_tuya_smartplug_plugin" name="Tuya SmartPlug Config" author="tixi_sincze" version="1.0.0" externallink=" https://github.com/sincze/Domoticz-Tuya-SmartPlug-Plugin">
+<plugin key="sincze_tuya_smartplug_plugin" name="Tuya SmartPlug Config" author="tixi_sincze_tatroxitum" version="2.0.0" externallink=" https://github.com/sincze/Domoticz-Tuya-SmartPlug-Plugin">
 	<params>
 		<param field="Address" label="IP address" width="200px" required="true"/>
 		<param field="Mode1" label="DevID" width="200px" required="true"/>
 		<param field="Mode2" label="Local Key" width="200px" required="true"/>
 		<param field="Mode3" label="DPS" width="200px" required="true" default="1"/>
 		<param field="Mode4" label="DPS group" width="200px" required="true" default="None"/>
-		<param field="Mode5" label="ID Amp;Watt;Volt" width="200px" required="true" default="4;5;6"/>
+		<param field="Mode5" label="ID Amp;Watt;Volt" width="200px" required="true" default="18;19;20"/>
 		<param field="Mode6" label="Debug" width="75px">
 			<options>
 				<option label="0"   value="0" default="true"/>
@@ -68,7 +69,7 @@
 # 128 		Mask Value. Shows plugin framework debug messages related to the message queue. 
 
 import Domoticz
-import pytuya
+import tinytuya
 import json
 
 ########################################################################################
@@ -102,7 +103,7 @@ class Plug:
 	#		False otherwise
 	#######################################################################
 	def update_state(self,state): #state: True <=> On ; False <=> Off
-		
+		Domoticz.Debug("update_state begin")
 		if(state):
 			UpdateDevice(self.__dps_id, 1, "On")
 			if(self.__command == 'Off'):
@@ -120,8 +121,7 @@ class Plug:
 				return True
 			else:
 				self.__command = None
-
-		return False
+		Domoticz.Debug("update_state end")
 	
 	#######################################################################
 	#
@@ -130,11 +130,13 @@ class Plug:
 	#
 	#######################################################################
 	def set_command(self,cmd):
+		Domoticz.Debug("set_command begin")
 		if(self.__alwaysON):
 			self.__command = 'On'
 		else:
 			self.__command = cmd
-	
+		Domoticz.Debug("set_command end")
+		
 	#######################################################################
 	#
 	# set_alwaysON function
@@ -142,9 +144,11 @@ class Plug:
 	#
 	#######################################################################
 	def set_alwaysON(self):
+		Domoticz.Debug("set_alwaysON begin")
 		self.__alwaysON = True
 		self.__command  = 'On'
-	
+		Domoticz.Debug("set_alwaysON end")
+		
 	#######################################################################
 	#
 	# put_payload function
@@ -152,7 +156,7 @@ class Plug:
 	#
 	#######################################################################
 	def put_payload(self,dict_payload):
-		
+		Domoticz.Debug("put_payload begin")
 		if(self.__command == None):
 			return
 		
@@ -160,7 +164,8 @@ class Plug:
 			dict_payload[str(self.__dps_id)] = True
 		else:
 			dict_payload[str(self.__dps_id)] = False
-
+		Domoticz.Debug("put_payload end")
+		
 ########################################################################################
 	
 ########################################################################################
@@ -175,7 +180,7 @@ class BasePlugin:
 	# constant definition
 	#
 	#######################################################################
-	__HB_BASE_FREQ = 2			  #heartbeat frequency (val x 10 seconds)
+	__HB_BASE_FREQ = 6			  #heartbeat frequency (val x 10 seconds)
 	__VALID_CMD    = ('On','Off') #list of valid command
 
 	#######################################################################
@@ -201,7 +206,7 @@ class BasePlugin:
 	#
 	#######################################################################
 	def __extract_status(self, Data):
-
+		Domoticz.Debug("extract_status begin")
 		start=Data.find(b'{"devId')
 		
 		if(start==-1):
@@ -224,7 +229,7 @@ class BasePlugin:
 			return (False,result['dps'])
 		except (JSONError, KeyError) as e:
 			return (True,"")
-
+		Domoticz.Debug("extract_satus end")
 
 	#######################################################################
 	#
@@ -249,6 +254,68 @@ class BasePlugin:
 			#~ return False
 			
 	#######################################################################
+	#		
+	# UpdateFromPlug function
+	#
+	#######################################################################
+	def UpdateFromPlug(self):
+		Domoticz.Debug("UpdateFromPlug begin")
+		
+		if(self.__state_machine == 0):#skip nothing was waiting
+			Domoticz.Debug("UpdateFromPlug self.__state_machine == 0")
+			return
+		
+		if(self.__state_machine == 1):#after a set command: need to ask the status
+			Domoticz.Debug("UpdateFromPlug self.__state_machine == 1")
+			self.__state_machine = 2
+			return
+		
+		#now self.__state_machine = 2, update from plug asked
+		self.__state_machine = 0
+		
+		Data = self.__device.status()
+		Domoticz.Debug(str(Data))
+		
+		values = Data["dps"]
+		switch_state = bool(Data['dps']["1"])
+		ampere = int(values[self.__ampere])
+		watt = int(values[self.__watt])
+		voltage = int(values[self.__voltage])
+		
+		for key in self.__plugs:
+			#Update Switch
+			if(values["1"]==1):
+				Domoticz.Debug("Switch updated to ON")
+				self.__plugs[key].update_state(1)
+			else:
+				Domoticz.Debug("Switch updated to OFF")
+				self.__plugs[key].update_state(0)
+			#Update Ampere                
+			if(ampere!=0):
+				Devices[key+1].Update(0,str(ampere/1000)) # TypeName="Current (Single)
+			else:
+				Devices[key+1].Update(0,str("0"))
+			#Update Watt
+			if(watt!=0):
+				Domoticz.Debug(str(Devices[key+2].Options))
+				Devices[key+2].Update(0,str(watt/10) + ";0") # kWh / Calculated
+				Devices[key+4].Update(0,str(watt/10)) # TypeName="Usage"
+			else:
+				Devices[key+2].Update(0,str("0") + ";0")
+				Devices[key+4].Update(0,str("0"))
+			#Update Volts
+            if(voltage!=0):
+				Devices[key+3].Update(0,str(voltage/10)) # TypeName="Voltage"
+			else:
+				Devices[key+3].Update(0,str("0"))
+		
+		Domoticz.Debug("Updated: " + str(ampere) + " Ampere Key is:" + str(key+1) + "id" + str(self.__ampere))
+		Domoticz.Debug("Updated: " + str(watt) + " Watt Key is:" + str(key+4) + "id" + str(self.__watt))
+		Domoticz.Debug("Updated: " + str(voltage) + " Voltage Key is:" + str(key+3) + "id" + str(self.__voltage))
+		
+		Domoticz.Debug("UpdateFromPlug end")
+		
+	#######################################################################
 	#
 	# __command_to_execute
 	#	send a command (set or status) to the tuya device
@@ -256,48 +323,47 @@ class BasePlugin:
 	#
 	#######################################################################
 	def __command_to_execute(self):
-		
-		self.__runAgain = self.__HB_BASE_FREQ
+		Domoticz.Debug("command_to_execute begin")
+		self.__runAgain = self.__HB_BASE_FREQ #set the next heartbeat
+		if(self.__connection.Connected()): #check if plug is connected
+			if(self.__state_machine == 1): #Cmd switch received from Domoticz
+				if(Devices[1].nValue == 1):#Cmd : turn off switch
+					self.__device.turn_off()#turn off plug
+					self.__plugs[1].update_state(0)#update Domoticz Switch Status
+				else:
+					self.__device.turn_on()#Cmd : turn off switch
+					self.__plugs[1].update_state(1)#turn on plug
+				self.__state_machine = 2#update Domoticz Switch Status
+				self.UpdateFromPlug()#now force update to get back the switch State
 				
-		if(self.__connection.Connected()):
-					
-			dict_payload = {}
-			
-			for key in self.__plugs:
-				self.__plugs[key].put_payload(dict_payload)
-			
-			if(len(dict_payload) != 0):
-				self.__state_machine = 1
-				payload = self.__device.generate_payload('set', dict_payload)
-				self.__connection.Send(payload)
-			
-			else:
+			else: #update Domotciz data from plug
 				self.__state_machine = 2
-				payload=self.__device.generate_payload('status')
-				self.__connection.Send(payload)	
+				self.UpdateFromPlug()
 			
 		else:
+			#not connected to plug, redo the connection
 			if(not self.__connection.Connecting()):
 				self.__connection.Connect()	
-	
+		Domoticz.Debug("command_to_execute end")
+		
 	#######################################################################
 	#
 	# constructor
 	#
 	#######################################################################
 	def __init__(self):
-		self.__address          = None          		#IP address of the smartplug
-		self.__devID            = None          		#devID of the smartplug
-		self.__localKey         = None          		#localKey of the smartplug
-		self.__device           = None          		#pytuya object of the smartplug
-		self.__ampere	        = None					#key for Ampere
-		self.__watt             = None					#key for Watt
-		self.__voltage          = None					#key for Voltage
-		self.__runAgain         = self.__HB_BASE_FREQ	#heartbeat frequency
-		self.__connection       = None					#connection to the tuya plug
-		self.__unit2dps_id_list = None					#mapping between Unit and list of dps id
-		self.__plugs	        = None					#mapping between dps id and a plug object
-		self.__state_machine    = 0						#state_machine: 0 -> no waiting msg ; 1 -> set command sent ; 2 -> status command sent
+		self.__address			= None					#IP address of the smartplug
+		self.__devID			= None					#devID of the smartplug
+		self.__localKey			= None					#localKey of the smartplug
+		self.__device			= None					#tinytuya object of the smartplug
+		self.__ampere			= None					#key for Ampere
+		self.__watt				= None					#key for Watt
+		self.__voltage			= None					#key for Voltage
+		self.__runAgain			= self.__HB_BASE_FREQ	#heartbeat frequency
+		self.__connection		= None					#connection to the tuya plug
+		self.__unit2dps_id_list	= None					#mapping between Unit and list of dps id
+		self.__plugs			= None					#mapping between dps id and a plug object
+		self.__state_machine	= 0						#state_machine: 0 -> no waiting msg ; 1 -> set command sent ; 2 -> status command sent
 		return
 		
 	#######################################################################
@@ -306,19 +372,21 @@ class BasePlugin:
 	#
 	#######################################################################
 	def onStart(self):
-		
+		Domoticz.Debug("onStart")
 		# Debug mode
 		Domoticz.Debugging(int(Parameters["Mode6"]))
 		Domoticz.Debug("onStart called")
-			
+		
 		#get parameters
 		self.__address  = Parameters["Address"]
 		self.__devID    = Parameters["Mode1"]
 		self.__localKey = Parameters["Mode2"]
 		self.__ampere, self.__watt, self.__voltage = Parameters["Mode5"].split(";")
 		
-		#set the next heartbeat
-		self.__runAgain = self.__HB_BASE_FREQ
+		#set the next heartbeat to now to update data
+		self.__runAgain = 1#set next heartbeat on start to update
+		#state machine
+		self.__state_machine = 2 #force first plug update
 		
 		#build internal maps (__unit2dps_id_list and __plugs)
 		self.__unit2dps_id_list = {}
@@ -333,7 +401,7 @@ class BasePlugin:
 			
 			if(int(val)>max_unit):
 				max_unit=int(val)
-	
+		
 		max_dps = max_unit
 		
 		#groups management: #syntax: 1;2 : 3;4
@@ -358,7 +426,7 @@ class BasePlugin:
 					if(val == max_dps):
 						Domoticz.Device(Name="Tuya SmartPlug (A)" , Unit=val+1, TypeName="Current (Single)").Create()
 						Domoticz.Log("Tuya SmartPlug Device (A) #" + str(val+1) +" created.")
-						Domoticz.Device(Name="Tuya SmartPlug (kWh)", Unit=val+2, TypeName="kWh").Create()
+						Domoticz.Device(Name="Tuya SmartPlug (kWh)", Unit=val+2, TypeName="kWh", Options={"EnergyMeterMode":"1"}).Create() #kwh calculated by Domoticz as the device doesn't calculate it
 						Domoticz.Log("Tuya SmartPlug Device kWh #" + str(val+2) +" created.")
 						Domoticz.Device(Name="Tuya SmartPlug (V)", Unit=val+3, TypeName="Voltage").Create()
 						Domoticz.Log("Tuya SmartPlug Device (V) #" + str(val+3) +" created.")
@@ -378,12 +446,10 @@ class BasePlugin:
 		#	for val in sorted(Parameters["Mode5"].split(";")):
 		#		self.__plugs[int(val)].set_alwaysON()
 		
-		#create the pytuya object
-		self.__device = pytuya.OutletDevice(self.__devID, self.__address, self.__localKey)
-
-		#state machine
-		self.__state_machine = 0
-
+		#create the tinytuya object
+		self.__device = tinytuya.OutletDevice(self.__devID, self.__address, self.__localKey)
+		self.__device.set_version(3.3)#force version to 3.3 (madnatory to work)
+		
 		#start the connection
 		self.__connection = Domoticz.Connection(Name="Tuya", Transport="TCP/IP", Address=self.__address, Port="6668")
 		self.__connection.Connect()
@@ -394,6 +460,7 @@ class BasePlugin:
 	#
 	#######################################################################
 	def onConnect(self, Connection, Status, Description):
+		Domoticz.Debug("onConnect")
 		if (Connection == self.__connection):
 			if (Status == 0):
 				Domoticz.Debug("Connected successfully to: "+Connection.Address+":"+Connection.Port)
@@ -406,8 +473,9 @@ class BasePlugin:
 					self.__connection.Disconnect()
 				if(not self.__connection.Connecting()):
 					self.__connection.Connect()
-				
-
+		
+		Domoticz.Debug("onConnect end")
+		
 
 	#######################################################################
 	#		
@@ -416,41 +484,10 @@ class BasePlugin:
 	#######################################################################
 	def onMessage(self, Connection, Data):
 		Domoticz.Debug("onMessage called: " + Connection.Address + ":" + Connection.Port +" "+ str(Data))
-		
-		if (Connection == self.__connection):
-			
-			if(self.__state_machine == 0):#skip nothing was waiting
-				return
-			
-			if(self.__state_machine == 1):#after a set command: need to ask the status
-				self.__state_machine = 2
-				payload=self.__device.generate_payload('status')
-				self.__connection.Send(payload)#TODO active connection check (it should be because we just get a message)
-				return
-				
-			#now self.__state_machine == 2
-			self.__state_machine = 0
-			
-			(error,state) = self.__extract_status(Data)
-			if(error):
-				self.__command_to_execute()
-				return
-						
-			error = False
-			for key in self.__plugs:				
-				error = error or self.__plugs[key].update_state(state[str(key)])	
-				Devices[key+1].Update(0,str(state[str(self.__ampere)]/1000))	# TypeName="Current (Single)
-				Devices[key+2].Update(0,str(state[str(self.__watt)]/10) + ";0")	# kWh / Calculated
-				Devices[key+3].Update(0,str(state[str(self.__voltage)]/10)) 	# TypeName="Voltage"
-				Devices[key+4].Update(0,str(state[str(self.__watt)]/10)) 		# TypeName="Usage"
-				
-				Domoticz.Debug("Updated: " + str(state[str(self.__ampere)]/1000) + " Ampere Key is:" + str(key+1))
-				Domoticz.Debug("Updated: " + str(state[str(self.__watt)]/10) + " Watt Key is:" + str(key+12))
-				Domoticz.Debug("Updated: " + str(state[str(self.__voltage)]/10) + " Voltage Key is:" + str(key+13))
-			
-			if(error):
-				self.__command_to_execute()
+		#method not used
+	#	Domoticz.Debug("onMessage end")
 
+	
 	#######################################################################
 	#		
 	# onCommand Domoticz function
@@ -458,12 +495,13 @@ class BasePlugin:
 	#######################################################################
 	def onCommand(self, Unit, Command, Level, Hue):
 		Domoticz.Debug("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + " Level: " + str(Level))
-		
 		if(Command=="Set Level"): #group (selector switch): convert level to command (0 <=> 'Off' ; 10 <=> 'On')
 			if(Level==0):
 				Command = 'Off'
+				Domoticz.Debug("Set OnCommand Off")
 			elif(Level==10):
 				Command = 'On'
+				Domoticz.Degug("Set OnCommand On")
 			else:
 				Domoticz.Error("Undefined Level: " + str(Level))
 				return
@@ -474,9 +512,11 @@ class BasePlugin:
 		
 		for val in self.__unit2dps_id_list[Unit]:
 			self.__plugs[val].set_command(Command)
-		
+			Domoticz.Debug("Set OnCommand : "+ str(Command))
+		self.__state_machine=1#force update of plug and Domoticz device
 		self.__command_to_execute()		
-
+		Domoticz.Debug("onCommand end")
+		
 	#######################################################################
 	#		
 	# onDisconnect Domoticz function
@@ -491,9 +531,11 @@ class BasePlugin:
 	#
 	#######################################################################
 	def onHeartbeat(self):
+		Domoticz.Debug("onHeartbeat")
 		self.__runAgain -= 1
-		if(self.__runAgain == 0):
+		if(self.__runAgain == 0):#time to update device
 			self.__command_to_execute()
+		Domoticz.Debug("onHeartbeat end")
 	
 	#######################################################################
 	#		
@@ -501,6 +543,7 @@ class BasePlugin:
 	#
 	#######################################################################
 	def onStop(self):
+		Domoticz.Debug("onStop")
 		self.__device           = None
 		self.__plugs	        = None
 		self.__unit2dps_id_list = None
@@ -508,7 +551,8 @@ class BasePlugin:
 			self.__connection.Disconnect()
 		self.__connection       = None
 		self.__state_machine    = 0
-
+		Domoticz.Debug("onStop fin")
+		
 ########################################################################################
 #
 # Domoticz plugin management
