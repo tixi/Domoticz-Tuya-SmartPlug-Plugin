@@ -29,7 +29,7 @@
 
 
 """
-<plugin key="sincze_tuya_smartplug_plugin" name="Tuya SmartPlug Config" author="tixi_sincze_tatroxitum" version="2.0.0" externallink=" https://github.com/sincze/Domoticz-Tuya-SmartPlug-Plugin">
+<plugin key="sincze_tuya_smartplug_plugin" name="Tuya SmartPlug Config" author="tixi_sincze_tatroxitum" version="2.0.1" externallink=" https://github.com/sincze/Domoticz-Tuya-SmartPlug-Plugin">
 	<params>
 		<param field="Address" label="IP address" width="200px" required="true"/>
 		<param field="Mode1" label="DevID" width="200px" required="true"/>
