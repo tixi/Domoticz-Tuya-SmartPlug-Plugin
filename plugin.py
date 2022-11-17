@@ -277,8 +277,8 @@ class BasePlugin:
 			Data = self.__device.status()
 			Domoticz.Debug(str(Data))
 			
-			values = Data["dps"]
 			try:
+				values = Data["dps"]
 				switch_state = bool(Data['dps']["1"])
 				ampere = int(values[self.__ampere])
 				watt = int(values[self.__watt])
