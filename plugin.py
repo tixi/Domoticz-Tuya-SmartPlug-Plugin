@@ -5,6 +5,7 @@
 #                                                                                      #
 #	Copyright (c) 2018 tixi 
 #	Modified (C) 2022 Tatroxitum : Updated to tinytuya interface and minor corrections #
+#	Modified (C) 2022 Tatroxitum : Catch exception KeyError on update + change heartbeat#
 #                                                                                      #
 #	Permission is hereby granted, free of charge, to any person obtaining a copy       #
 #	of this software and associated documentation files (the "Software"), to deal      #
@@ -28,7 +29,7 @@
 
 
 """
-<plugin key="sincze_tuya_smartplug_plugin" name="Tuya SmartPlug Config" author="tixi_sincze_tatroxitum" version="2.0.0" externallink=" https://github.com/sincze/Domoticz-Tuya-SmartPlug-Plugin">
+<plugin key="sincze_tuya_smartplug_plugin" name="Tuya SmartPlug Config" author="tixi_sincze_tatroxitum" version="2.0.1" externallink=" https://github.com/sincze/Domoticz-Tuya-SmartPlug-Plugin">
 	<params>
 		<param field="Address" label="IP address" width="200px" required="true"/>
 		<param field="Mode1" label="DevID" width="200px" required="true"/>
@@ -180,7 +181,7 @@ class BasePlugin:
 	# constant definition
 	#
 	#######################################################################
-	__HB_BASE_FREQ = 6			  #heartbeat frequency (val x 10 seconds)
+	__HB_BASE_FREQ = 1			  #heartbeat frequency (val x 10 seconds)
 	__VALID_CMD    = ('On','Off') #list of valid command
 
 	#######################################################################
@@ -270,49 +271,51 @@ class BasePlugin:
 			self.__state_machine = 2
 			return
 		
-		#now self.__state_machine = 2, update from plug asked
-		self.__state_machine = 0
+		if(self.__state_machine == 2): # update from plug asked
+			self.__state_machine = 0
 		
-		Data = self.__device.status()
-		Domoticz.Debug(str(Data))
+			Data = self.__device.status()
+			Domoticz.Debug(str(Data))
+			
+			try:
+				values = Data["dps"]
+				switch_state = bool(Data['dps']["1"])
+				ampere = int(values[self.__ampere])
+				watt = int(values[self.__watt])
+				voltage = int(values[self.__voltage])
 		
-		values = Data["dps"]
-		switch_state = bool(Data['dps']["1"])
-		ampere = int(values[self.__ampere])
-		watt = int(values[self.__watt])
-		voltage = int(values[self.__voltage])
+				for key in self.__plugs:
+					#Update Switch
+					if(values["1"]==1):
+						Domoticz.Debug("Switch updated to ON")
+						self.__plugs[key].update_state(1)
+					else:
+						Domoticz.Debug("Switch updated to OFF")
+						self.__plugs[key].update_state(0)
+					#Update Ampere                
+					if(ampere!=0):
+						Devices[key+1].Update(0,str(ampere/1000)) # TypeName="Current (Single)
+					else:
+						Devices[key+1].Update(0,str("0"))
+					#Update Watt
+					if(watt!=0):
+						Domoticz.Debug(str(Devices[key+2].Options))
+						Devices[key+2].Update(0,str(watt/10) + ";0") # kWh / Calculated
+						Devices[key+4].Update(0,str(watt/10)) # TypeName="Usage"
+					else:
+						Devices[key+2].Update(0,str("0") + ";0")
+						Devices[key+4].Update(0,str("0"))
+					#Update Volts
+					if(voltage!=0):
+						Devices[key+3].Update(0,str(voltage/10)) # TypeName="Voltage"
+					else:
+						Devices[key+3].Update(0,str("0"))
 		
-		for key in self.__plugs:
-			#Update Switch
-			if(values["1"]==1):
-				Domoticz.Debug("Switch updated to ON")
-				self.__plugs[key].update_state(1)
-			else:
-				Domoticz.Debug("Switch updated to OFF")
-				self.__plugs[key].update_state(0)
-			#Update Ampere                
-			if(ampere!=0):
-				Devices[key+1].Update(0,str(ampere/1000)) # TypeName="Current (Single)
-			else:
-				Devices[key+1].Update(0,str("0"))
-			#Update Watt
-			if(watt!=0):
-				Domoticz.Debug(str(Devices[key+2].Options))
-				Devices[key+2].Update(0,str(watt/10) + ";0") # kWh / Calculated
-				Devices[key+4].Update(0,str(watt/10)) # TypeName="Usage"
-			else:
-				Devices[key+2].Update(0,str("0") + ";0")
-				Devices[key+4].Update(0,str("0"))
-			#Update Volts
-            if(voltage!=0):
-				Devices[key+3].Update(0,str(voltage/10)) # TypeName="Voltage"
-			else:
-				Devices[key+3].Update(0,str("0"))
-		
-		Domoticz.Debug("Updated: " + str(ampere) + " Ampere Key is:" + str(key+1) + "id" + str(self.__ampere))
-		Domoticz.Debug("Updated: " + str(watt) + " Watt Key is:" + str(key+4) + "id" + str(self.__watt))
-		Domoticz.Debug("Updated: " + str(voltage) + " Voltage Key is:" + str(key+3) + "id" + str(self.__voltage))
-		
+				Domoticz.Debug("Updated: " + str(ampere) + " Ampere Key is:" + str(key+1) + "id" + str(self.__ampere))
+				Domoticz.Debug("Updated: " + str(watt) + " Watt Key is:" + str(key+4) + "id" + str(self.__watt))
+				Domoticz.Debug("Updated: " + str(voltage) + " Voltage Key is:" + str(key+3) + "id" + str(self.__voltage))
+			except KeyError:
+				Domoticz.Debug("KeyError no data received")		
 		Domoticz.Debug("UpdateFromPlug end")
 		
 	#######################################################################
